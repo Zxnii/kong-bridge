@@ -5,6 +5,7 @@
     "main": "build/index.js",
     "scripts": {
         "start": "tsc --incremental && node .",
+        "build": "tsc",
         "start:nobuild": "node ."
     },
     "devDependencies": {
