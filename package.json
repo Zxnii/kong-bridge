@@ -1,0 +1,21 @@
+{
+    "name": "kong-bridge",
+    "version": "1.0.0",
+    "private": true,
+    "main": "build/index.js",
+    "scripts": {
+        "start": "tsc --incremental && node .",
+        "start:nobuild": "node ."
+    },
+    "devDependencies": {
+        "typescript": "^4.9.5"
+    },
+    "dependencies": {
+        "@lilithmod/unborn-hypixel": "^0.22.0",
+        "@sapphire/fetch": "^2.4.1",
+        "discord.js": "^14.9.0",
+        "dotenv": "^16.0.3",
+        "mineflayer": "^4.8.1",
+        "tslog": "^4.8.2"
+    }
+}
