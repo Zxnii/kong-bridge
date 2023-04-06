@@ -5,6 +5,8 @@ import log from "./log";
 import MessageHandler from "./plugins/MessageHandler";
 import {Bot, createBot} from "mineflayer";
 import ChatHandler from "./plugins/ChatHandler";
+import CommandHandler from "./plugins/CommandHandler";
+import OnlineCommand from "./commands/OnlineCommand";
 
 export default class KongBridge extends Client {
     private static instance: KongBridge;
@@ -13,6 +15,7 @@ export default class KongBridge extends Client {
     private static email: string;
     private static bridgeChannel: string;
 
+    public static devGuildId?: string;
     public static messageEmoji: string;
 
     private readonly plugins: Plugin[] = [];
@@ -43,24 +46,33 @@ export default class KongBridge extends Client {
             auth: "microsoft"
         });
 
-        this.addPlugin(new ChatHandler());
-        this.addPlugin(new MessageHandler());
-
         await new Promise<void>(resolve => {
             this.bot.once("login", () => {
                 resolve();
             });
         });
 
+        const commandHandler = new CommandHandler()
+            .addCommand(new OnlineCommand());
+
+        await this.addPlugin(commandHandler);
+        await this.addPlugin(new ChatHandler());
+        await this.addPlugin(new MessageHandler());
+
         log.info("Running post-init calls");
 
         this.plugins.forEach(plugin => plugin.postInit());
+
+        log.info("Sending to limbo");
+
+        this.bot.chat("§");
     }
 
-    private addPlugin(plugin: Plugin): void {
+    private async addPlugin(plugin: Plugin): Promise<void> {
         this.plugins.push(plugin);
 
-        plugin.initialize(this);
+        await plugin.initialize(this);
+
         log.info(`Added plugin: ${plugin.getName()}`);
     }
 
@@ -83,7 +95,8 @@ export default class KongBridge extends Client {
             throw "One or more fields were missing from the environment variables";
         }
 
-        KongBridge.messageEmoji = process.env["MESSAGE_EMOJI"] ?? ":speech_balloon:"
+        KongBridge.devGuildId = process.env["DEV_GUILD_ID"];
+        KongBridge.messageEmoji = process.env["MESSAGE_EMOJI"] ?? ":speech_balloon:";
 
         KongBridge.instance = new KongBridge();
         KongBridge.instance.setup().then(() => {
