@@ -6,7 +6,10 @@ import MessageHandler from "./plugins/MessageHandler";
 import {Bot, createBot} from "mineflayer";
 import ChatHandler from "./plugins/ChatHandler";
 import CommandHandler from "./plugins/CommandHandler";
-import OnlineCommand from "./commands/OnlineCommand";
+import OnlineCommand from "./commands/discord/OnlineCommand";
+import PlaytimeCommand from "./commands/discord/PlaytimeCommand";
+import fs from "fs/promises";
+import OnlinePoll from "./plugins/OnlinePoll";
 
 export default class KongBridge extends Client {
     private static instance: KongBridge;
@@ -19,6 +22,8 @@ export default class KongBridge extends Client {
     public static messageEmoji: string;
 
     private readonly plugins: Plugin[] = [];
+
+    private playtimes: Record<string, { totalLogins: number, lastLogin: number, lastLogout: number, totalPlaytime: number }> = {};
     private bot!: Bot;
 
     constructor() {
@@ -31,6 +36,10 @@ export default class KongBridge extends Client {
                 GatewayIntentBits.MessageContent
             ]
         });
+
+        this.on("error", e => {
+            log.error(e);
+        });
     }
 
     private async setup(): Promise<void> {
@@ -38,6 +47,25 @@ export default class KongBridge extends Client {
 
         log.info(`Logged in as ${this.user!.tag}`);
 
+        await this.createBot();
+
+        await this.addPlugin(new CommandHandler()
+            .addCommand(new OnlineCommand())
+            .addCommand(new PlaytimeCommand()));
+        await this.addPlugin(new ChatHandler());
+        await this.addPlugin(new MessageHandler());
+        await this.addPlugin(new OnlinePoll());
+
+        log.info("Loading playtime");
+
+        this.playtimes = JSON.parse(await fs.readFile("playtime.json", { encoding: "utf8" }).catch(() => "{}"));
+
+        log.info("Running post-init calls");
+
+        this.plugins.forEach(plugin => plugin.postInit());
+    }
+
+    private createBot(): Promise<void> {
         this.bot = createBot({
             username: KongBridge.email,
             brand: "vanilla",
@@ -46,26 +74,25 @@ export default class KongBridge extends Client {
             auth: "microsoft"
         });
 
-        await new Promise<void>(resolve => {
-            this.bot.once("login", () => {
-                resolve();
-            });
+        this.bot.once("kicked", (reason) => {
+            if (reason.toLowerCase().includes("banned")) {
+                log.info("Banned :(");
+                return;
+            }
+
+            log.info("Got kicked! Rejoining.");
+            void this.createBot();
         });
 
-        const commandHandler = new CommandHandler()
-            .addCommand(new OnlineCommand());
+        return new Promise<void>(resolve => {
+            this.bot.once("login", () => {
+                resolve();
 
-        await this.addPlugin(commandHandler);
-        await this.addPlugin(new ChatHandler());
-        await this.addPlugin(new MessageHandler());
+                log.info("Sending to limbo");
 
-        log.info("Running post-init calls");
-
-        this.plugins.forEach(plugin => plugin.postInit());
-
-        log.info("Sending to limbo");
-
-        this.bot.chat("§");
+                this.bot.chat("§");
+            });
+        });
     }
 
     private async addPlugin(plugin: Plugin): Promise<void> {
@@ -78,6 +105,14 @@ export default class KongBridge extends Client {
 
     public getBot(): Bot {
         return this.bot;
+    }
+
+    public getPlaytimes(): KongBridge["playtimes"] {
+        return this.playtimes;
+    }
+
+    public async savePlaytimes() {
+        await fs.writeFile("playtime.json", JSON.stringify(this.playtimes));
     }
 
     public async getChannel(id: Snowflake): Promise<Channel | null> {

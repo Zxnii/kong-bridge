@@ -1,16 +1,17 @@
 import Plugin from "./Plugin";
 import KongBridge from "../KongBridge";
-import Command from "../commands/Command";
+import DiscordCommand from "../commands/discord/DiscordCommand";
 import {REST, Routes} from "discord.js";
+import log from "../log";
 
 export default class CommandHandler extends Plugin {
-    private readonly commands: Command[] = [];
+    private readonly commands: DiscordCommand[] = [];
 
     public getName(): string {
         return "Command Handler";
     }
 
-    public addCommand(command: Command): CommandHandler {
+    public addCommand(command: DiscordCommand): CommandHandler {
         this.commands.push(command);
 
         return this;
@@ -18,9 +19,7 @@ export default class CommandHandler extends Plugin {
 
     public async initialize(bridge: KongBridge): Promise<void> {
         const rest = new REST({ version: "10" }).setToken(KongBridge.getToken());
-        const route = KongBridge.devGuildId ?
-            Routes.applicationGuildCommands(bridge.application!.id, KongBridge.devGuildId) :
-            Routes.applicationCommands(bridge.application!.id);
+        const route = Routes.applicationCommands(bridge.application!.id);
 
         const commands: object[] = [];
 
@@ -34,8 +33,12 @@ export default class CommandHandler extends Plugin {
             if (interaction.isCommand()) {
                 for (const command of this.commands) {
                     if (command.getInfo().name === interaction.commandName) {
-                        await interaction.deferReply();
-                        await command.performAction(bridge, interaction);
+                        try {
+                            await interaction.deferReply();
+                            await command.performAction(bridge, interaction);
+                        } catch (e) {
+                            log.error(e);
+                        }
                     }
                 }
             }

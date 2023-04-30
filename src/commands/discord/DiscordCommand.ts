@@ -1,8 +1,8 @@
-import KongBridge from "../KongBridge";
+import KongBridge from "../../KongBridge";
 import CommandInfo from "./CommandInfo";
 import {CommandInteraction, SlashCommandBuilder} from "discord.js";
 
-export default abstract class Command {
+export default abstract class DiscordCommand {
     public abstract getInfo(): CommandInfo;
     public abstract performAction(bridge: KongBridge, interaction: CommandInteraction): Promise<void>;
 
@@ -11,6 +11,10 @@ export default abstract class Command {
         const builder = new SlashCommandBuilder()
             .setName(commandInfo.name)
             .setDescription(commandInfo.description);
+
+        if (commandInfo.addParameters) {
+            commandInfo.addParameters(builder);
+        }
 
         return builder.toJSON();
     }

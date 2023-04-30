@@ -8,3 +8,6 @@
 
 # env
 .env
+
+# "data" "base"
+playtime.json
